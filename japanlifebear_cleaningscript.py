@@ -17,6 +17,8 @@ for i in range(num_chunks):
     chunk.to_csv(f'/content/lifebear_dataset_chunk_{i+1}.csv', index=False)
 
 print(f"The CSV file has been divided into {num_chunks} smaller portions.")
+
+
 import pandas as pd
 import re
 
@@ -77,8 +79,111 @@ for i in range(num_chunks):
     if not corrupt_data.empty:
         corrupt_data.to_csv(f'/content/corrupt_data_chunk_{i+1}.csv', index=False)
         print(f"Corrupt data found and saved to 'corrupt_data_chunk_{i+1}.csv'. Total rows: {len(corrupt_data)}")
+        
+        
+import pandas as pd
+import re
+
+try:
+    # Load the CSV file into a Pandas DataFrame
+    df = pd.read_csv('/content/lifebear_dataset_chunk_4.csv')
+
+    # Remove duplicate email addresses based on 'mail_address' column
+    df_no_duplicates = df.drop_duplicates(subset=['mail_address'])
+
+    # Optionally, save the removed duplicate rows for reference
+    duplicate_emails = df[df.duplicated(subset=['mail_address'])]
+    duplicate_emails.to_csv('duplicate_emails.csv', index=False)
+    print(f"Removed {len(duplicate_emails)} duplicate email addresses and saved them to 'duplicate_emails.csv'.")
+
+    # Now working with the DataFrame without duplicates
+    df = df_no_duplicates
+
+    # Proceed with the rest of your invalid/corrupt data checks
+
+    # List of columns to check for null/empty values
+    columns_to_check = ['id', 'login_id', 'mail_address', 'password', 'created_at', 'salt', 'birthday_on', 'gender']
+
+    # Create a mask that checks for any null or empty values in the specified columns
+    invalid_data_mask = df[columns_to_check].applymap(is_invalid).any(axis=1)
+
+    # Check for valid 'created_at' format
+    invalid_created_at_mask = ~df['created_at'].apply(is_valid_created_at)
+
+    # Check for valid 'birthday_on' format
+    invalid_birthday_on_mask = ~df['birthday_on'].apply(is_valid_birthday_on)
+
+    # Check for valid 'gender' values
+    invalid_gender_mask = ~df['gender'].apply(is_valid_gender)
+
+    # Combine all invalid masks
+    total_invalid_mask = invalid_data_mask | invalid_created_at_mask | invalid_birthday_on_mask | invalid_gender_mask
+
+    # Extract rows that contain invalid data
+    corrupt_data = df[total_invalid_mask]
+
+    # Save the corrupt data to a new CSV file
+    corrupt_data.to_csv('corrupt_data.csv', index=False)
+    print("Corrupt data separated and saved to 'corrupt_data.csv'")
+
+    # Remove the corrupt rows from the original DataFrame
+    clean_data = df[~total_invalid_mask]
+
+    # Overwrite the original CSV file with the cleaned data
+    clean_data.to_csv('/content/lifebear_dataset_chunk_5.csv', index=False)
+    print("The original file has been updated without corrupt or invalid rows.")
+
+except FileNotFoundError:
+    print("File not found at the specified path.")
+except Exception as e:
+    print(f"An error occurred: {e}")
 
     # Save the clean chunk data
     clean_data.to_csv(f'/content/lifebear_dataset_chunk_{i+1}.csv', index=False)
 
 print(f"The CSV file has been divided into {num_chunks} smaller portions and corrupt data has been separated.")
+
+import pandas as pd
+
+# List of chunk file paths
+chunk_files = [
+    '/content/lifebear_dataset_chunk_1.csv',
+    '/content/lifebear_dataset_chunk_2.csv',
+    '/content/lifebear_dataset_chunk_3.csv',
+    '/content/lifebear_dataset_chunk_4.csv',
+    '/content/lifebear_dataset_chunk_5.csv'
+]
+
+# Function to replace 0.0 and 1.0 with 'male' and 'female' in the gender column
+def replace_gender(chunk):
+    chunk['gender'] = chunk['gender'].replace({0.0: 'male', 1.0: 'female'})
+    return chunk
+
+# Loop through each chunk, modify it, and save it back
+for file_path in chunk_files:
+    # Load the chunk
+    df = pd.read_csv(file_path)
+
+    # Replace gender values
+    df = replace_gender(df)
+
+    # Save the modified chunk back to CSV
+    df.to_csv(file_path, index=False)
+    print(f"Updated {file_path} and saved.")
+    # List to hold all the modified chunks
+chunks = []
+
+# Load each modified chunk and append to the list
+for file_path in chunk_files:
+    df = pd.read_csv(file_path)
+    chunks.append(df)
+
+# Concatenate all the chunks into one DataFrame
+combined_data = pd.concat(chunks)
+
+# Save the combined DataFrame into a new CSV file
+combined_data.to_csv('/content/lifebear_dataset_combined.csv', index=False)
+
+print("All chunks have been combined and saved as 'lifebear_dataset_combined.csv'")
+
+
